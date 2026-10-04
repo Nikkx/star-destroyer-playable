@@ -51,6 +51,7 @@ function layout(){
   stars.forEach(s=>s.destroy());stars=[];
   for(let i=0;i<70;i++){const s=new PIXI.Sprite(starTex);s.anchor.set(.5);s.a=Math.random()*Math.PI*2;s.r=Math.random()*Math.hypot(W,H)*.55;bgLayer.addChild(s);stars.push(s)}
   placeHud();
+  ax=tAx=W/2;ay=tAy=H*.5;
   if(state==='end')buildEnd(1);
 }
 const txt=(size,fill='#fff')=>new PIXI.Text('',{fontFamily:'Chewy,"Arial Rounded MT Bold",Arial,sans-serif',letterSpacing:1,fontSize:size,fill,stroke:'#1b0b33',strokeThickness:Math.max(3,size/7),lineJoin:'round'});
@@ -71,7 +72,7 @@ function placeHud(){
 app.renderer.on('resize',layout);
 
 // ---- State ----
-let gems=[],parts=[],floats=[],score=0,combo=0,comboTimer=0,timeLeft=GAME_TIME,elapsed=0,spawnT=0,shake=0,state='play',endUI=null,shownScore=-1,bullets=[],camX=0,camY=0,tX=0,tY=0,fireT=0,gunSide=1,lives=3,maxLives=3,wlevel=0,bonusT=4,heartT=12;
+let gems=[],parts=[],floats=[],score=0,combo=0,comboTimer=0,timeLeft=GAME_TIME,elapsed=0,spawnT=0,shake=0,state='play',endUI=null,shownScore=-1,bullets=[],camX=0,camY=0,tX=0,tY=0,fireT=0,gunSide=1,lives=3,maxLives=3,wlevel=0,bonusT=4,heartT=12,ax=0,ay=0,tAx=0,tAy=0;
 const gemSize=()=>Math.min(W,H)*.17;
 
 function spawn(){
@@ -172,13 +173,14 @@ function buildEnd(a){
 
 function reset(){
   if(endUI){endUI.c.destroy({children:true});endUI=null}
-  score=0;combo=0;comboTimer=0;timeLeft=GAME_TIME;elapsed=0;spawnT=0;state='play';shownScore=-1;scoreT.visible=true;bar.visible=barBg.visible=true;lives=3;maxLives=3;wlevel=0;bonusT=4;heartT=12;setHearts();bullets.forEach(b=>b.s.destroy());bullets=[];camX=camY=tX=tY=0;hideCombo();
+  score=0;combo=0;comboTimer=0;timeLeft=GAME_TIME;elapsed=0;spawnT=0;state='play';shownScore=-1;scoreT.visible=true;bar.visible=barBg.visible=true;lives=3;maxLives=3;wlevel=0;bonusT=4;heartT=12;setHearts();bullets.forEach(b=>b.s.destroy());bullets=[];camX=camY=tX=tY=0;ax=tAx=W/2;ay=tAy=H*.5;hideCombo();
 }
 
-function aim(e){if(state!=='play')return;const r=app.view.getBoundingClientRect();tX=((e.clientX-r.left)/r.width*2-1)*W*1.0;tY=((e.clientY-r.top)/r.height*2-1)*H*1.2}
-let touching=false;
-app.view.addEventListener('pointerdown',e=>{if(state!=='play')return;touching=true;hint.visible=false;aim(e)});
-window.addEventListener('pointermove',e=>{if(touching)aim(e)});
+function aim(e){if(state!=='play')return;const r=app.view.getBoundingClientRect();tAx=(e.clientX-r.left)/r.width*W;tAy=(e.clientY-r.top)/r.height*H}
+let touching=false,dragX0=0,dragY0=0,cam0X=0,cam0Y=0;
+function drag(){tX=Math.max(-W,Math.min(W,cam0X+(tAx-dragX0)*1.6));tY=Math.max(-H*1.2,Math.min(H*1.2,cam0Y+(tAy-dragY0)*1.4))}
+app.view.addEventListener('pointerdown',e=>{if(state!=='play')return;touching=true;hint.visible=false;aim(e);dragX0=tAx;dragY0=tAy;cam0X=camX;cam0Y=camY;tX=camX;tY=camY});
+window.addEventListener('pointermove',e=>{if(touching){aim(e);drag()}});
 window.addEventListener('pointerup',()=>{touching=false});
 layout();
 const refreshFont=()=>{PIXI.TextMetrics.clearMetrics();[scoreT,comboT,hint].forEach(t=>{t.dirty=true})};
@@ -192,7 +194,7 @@ app.ticker.add(()=>{
     const q=s.r/MR;s.x=VX+Math.cos(s.a)*s.r-camX*q*.35;s.y=VY+Math.sin(s.a)*s.r-camY*q*.35;s.scale.set(.15+q*1.1);s.alpha=Math.min(.85,.2+q*1.5)});
   if(state==='play'){
     elapsed+=dt;timeLeft-=dt;spawnT-=dt;bonusT-=dt;heartT-=dt;
-    if(bonusT<=0){if(wlevel<6)spawnPickup('w');bonusT=9}
+    if(bonusT<=0){if(wlevel<8)spawnPickup('w');bonusT=Math.max(3.5,9-elapsed*.16)}
     if(heartT<=0){if(lives<5)spawnPickup('h');heartT=13}
     if(spawnT<=0){spawn();spawnT=Math.max(.16,.6-elapsed*.014)}
     if(comboTimer>0){comboTimer-=dt;if(comboTimer<=0){combo=0;hideCombo()}}
@@ -205,16 +207,17 @@ app.ticker.add(()=>{
     const rd=s.width/2;
     if(s.z<.08||s.x+rd<0||s.x-rd>W||s.y+rd<0||s.y-rd>H){gemLayer.removeChild(s);s.destroy();gems.splice(i,1)}
   }
-  camX+=(tX-camX)*Math.min(1,dt*11);camY+=(tY-camY)*Math.min(1,dt*11);
+  ax+=(tAx-ax)*Math.min(1,dt*28);ay+=(tAy-ay)*Math.min(1,dt*28);cross.x=ax;cross.y=ay;
+  camX+=(tX-camX)*Math.min(1,dt*18);camY+=(tY-camY)*Math.min(1,dt*18);
   if(state==='play'){fireT-=dt;if(fireT<=0){fireT=Math.max(.22,.8*Math.pow(.78,Math.max(0,wlevel-1)));
     (wlevel>=1?[-1,1]:[0]).forEach(sd=>{const sp=new PIXI.Sprite(dotTex);sp.anchor.set(.5);sp.blendMode=PIXI.BLEND_MODES.ADD;sp.tint=0x3df08c;fxLayer.addChild(sp);
-      bullets.push({cx:camX,cy:camY,mx:sd*W*.07,my:H*.05,z:.25,s:sp})})}}
+      bullets.push({cx:camX,cy:camY,mx:sd*W*.07,my:H*.05,ux:ax-VX,uy:ay-VY,z:.25,s:sp})})}}
   const dzp=(2.6+elapsed*.03)*dt;
   for(let i=bullets.length-1;i>=0;i--){
-    const b=bullets[i],zp=b.z;b.z+=9*dt;let hit=false;const f=Math.max(0,1-b.z/3),bx=b.cx+b.mx*f,by=b.cy+b.my*f;
+    const b=bullets[i],zp=b.z;b.z+=9*dt;let hit=false;const f=Math.max(0,1-b.z/3),bx=b.cx+b.mx*f+b.ux*b.z,by=b.cy+b.my*f+b.uy*b.z;
     for(const g of gems.slice()){
       if(g.dead||g.pk)continue;
-      if(zp<=g.z+dzp&&b.z>=g.z&&Math.hypot(bx-g.ox,by-g.oy)<g.rw*1.15){pop(g);cross.scale.set(1.5);hit=true;break}
+      if(zp<=g.z+dzp&&b.z>=g.z&&Math.hypot(bx-g.ox,by-g.oy)<g.rw*1.5+gemSize()*.2){pop(g);cross.scale.set(1.5);hit=true;break}
     }
     if(hit||b.z>9){b.s.destroy();bullets.splice(i,1);continue}
     const k=1/b.z,sx=VX+(bx-camX)*k,sy=VY+(by-camY)*k,sz=Math.max(.12,Math.min(1.4,.7/b.z));

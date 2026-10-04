@@ -51,20 +51,21 @@ function layout(){
   stars.forEach(s=>s.destroy());stars=[];
   for(let i=0;i<70;i++){const s=new PIXI.Sprite(starTex);s.anchor.set(.5);s.a=Math.random()*Math.PI*2;s.r=Math.random()*Math.hypot(W,H)*.55;bgLayer.addChild(s);stars.push(s)}
   placeHud();
-  ax=tAx=W/2;ay=tAy=H*.5;
+  ax=tAx=W/2;ay=tAy=H*.5;joyLayout();
   if(state==='end')buildEnd(1);
 }
 const txt=(size,fill='#fff')=>new PIXI.Text('',{fontFamily:'Chewy,"Arial Rounded MT Bold",Arial,sans-serif',letterSpacing:1,fontSize:size,fill,stroke:'#1b0b33',strokeThickness:Math.max(3,size/7),lineJoin:'round'});
 const scoreT=txt(34),comboT=txt(40,'#ffd24d'),hint=txt(38),barBg=new PIXI.Graphics(),bar=new PIXI.Graphics();
 const cross=new PIXI.Graphics();cross.lineStyle(3,0xffffff,.85).drawCircle(0,0,20);
 [[0,-32,0,-12],[0,12,0,32],[-32,0,-12,0],[12,0,32,0]].forEach(l=>cross.moveTo(l[0],l[1]).lineTo(l[2],l[3]));
+const joyBase=new PIXI.Graphics(),joyKnob=new PIXI.Graphics();
 const hearts=[0,1,2,3,4].map(()=>new PIXI.Sprite(heartTex)),flash=new PIXI.Graphics();
 hearts.forEach(s=>s.scale.set(36/HW));
-hud.addChild(flash,barBg,bar,scoreT,...hearts,comboT,hint,cross);
+hud.addChild(flash,barBg,bar,scoreT,...hearts,comboT,hint,cross,joyBase,joyKnob);
 function setHearts(){hearts.forEach((s,i)=>{s.visible=i<maxLives;s.alpha=i<lives?1:.25;s.tint=i<lives?0xffffff:0x555566})}
 function showCombo(n){comboT.text='x'+n+' COMBO!';comboT.scale.set(1.5)}
 function hideCombo(){comboT.text=''}
-comboT.anchor.set(.5);hint.anchor.set(.5);hint.text='TOUCH TO MOVE!';
+comboT.anchor.set(.5);hint.anchor.set(.5);hint.text='DODGE & DESTROY!';
 function placeHud(){
   scoreT.x=18;scoreT.y=34;comboT.x=W/2;comboT.y=Math.min(H*.2,150);hint.x=W/2;hint.y=H*.66;cross.x=W/2;cross.y=H*.5;hearts.forEach((s,i)=>{s.x=18+i*42;s.y=84});flash.clear().beginFill(0xff2d55).drawRect(0,0,W,H).endFill();flash.alpha=0;
   barBg.clear().beginFill(0xffffff,.15).drawRoundedRect(18,14,W-36,10,5).endFill();
@@ -72,13 +73,14 @@ function placeHud(){
 app.renderer.on('resize',layout);
 
 // ---- State ----
-let gems=[],parts=[],floats=[],score=0,combo=0,comboTimer=0,timeLeft=GAME_TIME,elapsed=0,spawnT=0,shake=0,state='play',endUI=null,shownScore=-1,bullets=[],camX=0,camY=0,tX=0,tY=0,fireT=0,gunSide=1,lives=3,maxLives=3,wlevel=0,bonusT=4,heartT=12,ax=0,ay=0,tAx=0,tAy=0;
+let gems=[],parts=[],floats=[],score=0,combo=0,comboTimer=0,timeLeft=GAME_TIME,elapsed=0,spawnT=0,shake=0,state='play',endUI=null,shownScore=-1,bullets=[],camX=0,camY=0,tX=0,tY=0,fireT=0,gunSide=1,lives=3,maxLives=3,wlevel=0,bonusT=3,heartT=7,ax=0,ay=0,tAx=0,tAy=0;
 const gemSize=()=>Math.min(W,H)*.17;
 
 function spawn(){
   const p=planets[Math.random()*planets.length|0];const s=new PIXI.Sprite(p.t);s.anchor.set(.5);
   const dim=Math.max(p.w,p.h);s.baseScale=gemSize()*(0.8+0.6*dim/256)*(0.9+Math.random()*.2)/dim;s.col=p.col;
-  s.z=7;const b=()=>{const r=Math.random()*2-1;return Math.sign(r)*Math.pow(Math.abs(r),2.2)};s.ox=b()*W*1.3;s.oy=b()*H*.95;s.ox+=camX;s.oy+=camY;s.vr=(Math.random()-.5)*.6;s.age=0;
+  s.z=7;const b=()=>{const r=Math.random()*2-1;return Math.sign(r)*Math.pow(Math.abs(r),2.2)};s.ox=b()*W*1.3;s.oy=b()*H*.95;if(Math.random()<.25+elapsed*.006){const a2=Math.random()*6.283,d2=(s.baseScale*dim/2+gemSize()*.6)*(.6+Math.random()*.5);s.ox=Math.cos(a2)*d2;s.oy=Math.sin(a2)*d2}
+  s.ox+=camX;s.oy+=camY;s.vr=(Math.random()-.5)*.6;s.age=0;
   s.rw=s.baseScale*dim/2;
   s.scale.set(0);gemLayer.addChild(s);gems.push(s);
 }
@@ -124,7 +126,7 @@ function spawnPickup(kind){
   const t=kind==='w'?pickStar:heartTex,s=new PIXI.Container();
   const size=gemSize()*1.05,dim=kind==='w'?Math.max(SW,SH):Math.max(HW,HH);s.baseScale=size/dim;s.rw=size/2;s.pk=kind;s.col=kind==='w'?0xffd24d:0xff5f7e;
   const glow=new PIXI.Sprite(artT(kind==='w'?'gs':'gh')),art=new PIXI.Sprite(t);glow.anchor.set(.5);art.anchor.set(.5);glow.blendMode=PIXI.BLEND_MODES.ADD;glow.alpha=.85;s.addChild(glow,art);
-  s.z=7;s.ox=camX+(Math.random()*2-1)*W*.6;s.oy=camY+(Math.random()*2-1)*H*.45;s.vr=kind==='w'?.8:0;s.age=0;
+  s.z=7;s.ox=camX+(Math.random()*2-1)*W*.2;s.oy=camY+(Math.random()*2-1)*H*.15;s.vr=kind==='w'?.8:0;s.age=0;
   s.scale.set(0);gemLayer.addChild(s);gems.push(s);
 }
 function collect(kind,x,y){
@@ -140,7 +142,7 @@ function hurt(x,y,col){
   if(lives<=0)showEnd();
 }
 function showEnd(){
-  state='end';touching=false;tX=camX;tY=camY;scoreT.visible=false;bar.visible=barBg.visible=false;hearts.forEach(s=>s.visible=false);bullets.forEach(b=>b.s.destroy());bullets=[];gems.forEach(g=>g.destroy());gems=[];hideCombo();
+  state='end';touching=false;joyEnd();joyBase.visible=joyKnob.visible=false;tX=camX;tY=camY;scoreT.visible=false;bar.visible=barBg.visible=false;hearts.forEach(s=>s.visible=false);bullets.forEach(b=>b.s.destroy());bullets=[];gems.forEach(g=>g.destroy());gems=[];hideCombo();
   buildEnd(0);
   burst(W/2,H*.3,0xffd24d,40);
 }
@@ -173,15 +175,23 @@ function buildEnd(a){
 
 function reset(){
   if(endUI){endUI.c.destroy({children:true});endUI=null}
-  score=0;combo=0;comboTimer=0;timeLeft=GAME_TIME;elapsed=0;spawnT=0;state='play';shownScore=-1;scoreT.visible=true;bar.visible=barBg.visible=true;lives=3;maxLives=3;wlevel=0;bonusT=4;heartT=12;setHearts();bullets.forEach(b=>b.s.destroy());bullets=[];camX=camY=tX=tY=0;ax=tAx=W/2;ay=tAy=H*.5;hideCombo();
+  score=0;combo=0;comboTimer=0;timeLeft=GAME_TIME;elapsed=0;spawnT=0;state='play';hint.visible=true;shownScore=-1;scoreT.visible=true;bar.visible=barBg.visible=true;joyBase.visible=joyKnob.visible=true;lives=3;maxLives=3;wlevel=0;bonusT=3;heartT=7;setHearts();bullets.forEach(b=>b.s.destroy());bullets=[];camX=camY=tX=tY=cvx=cvy=sdx=sdy=0;ax=tAx=W/2;ay=tAy=H*.5;hideCombo();
 }
 
-function aim(e){if(state!=='play')return;const r=app.view.getBoundingClientRect();tAx=(e.clientX-r.left)/r.width*W;tAy=(e.clientY-r.top)/r.height*H}
-let touching=false,dragX0=0,dragY0=0,cam0X=0,cam0Y=0;
-function drag(){tX=Math.max(-W,Math.min(W,cam0X+(tAx-dragX0)*1.6));tY=Math.max(-H*1.2,Math.min(H*1.2,cam0Y+(tAy-dragY0)*1.4))}
-app.view.addEventListener('pointerdown',e=>{if(state!=='play')return;touching=true;hint.visible=false;aim(e);dragX0=tAx;dragY0=tAy;cam0X=camX;cam0Y=camY;tX=camX;tY=camY});
-window.addEventListener('pointermove',e=>{if(touching){aim(e);drag()}});
-window.addEventListener('pointerup',()=>{touching=false});
+let touching=false,joyId=null,jdx=0,jdy=0,jcx=0,jcy=0,jR=60,cvx=0,cvy=0,sdx=0,sdy=0;
+function joyLayout(){jR=Math.max(52,Math.min(W,H)*.15);jcx=W-jR-26;jcy=H-jR-26;
+  joyBase.clear().beginFill(0xffffff,.12).lineStyle(3,0xffffff,.4).drawCircle(0,0,jR).endFill();
+  joyKnob.clear().beginFill(0xffffff,.38).lineStyle(3,0xffffff,.7).drawCircle(0,0,jR*.42).endFill();
+  joyBase.x=joyKnob.x=jcx;joyBase.y=joyKnob.y=jcy}
+function joyPos(e){const r=app.view.getBoundingClientRect();return[(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
+function joyMove(e){const p=joyPos(e);let vx=p[0]-jcx,vy=p[1]-jcy;const d=Math.hypot(vx,vy),m=Math.min(d,jR);if(d>0){vx=vx/d*m;vy=vy/d*m}
+  joyKnob.x=jcx+vx;joyKnob.y=jcy+vy;jdx=vx/jR;jdy=vy/jR}
+function joyEnd(){joyId=null;jdx=jdy=0;joyKnob.x=jcx;joyKnob.y=jcy}
+app.view.addEventListener('pointerdown',e=>{if(state!=='play'||joyId!==null)return;const p=joyPos(e);
+  if(Math.hypot(p[0]-jcx,p[1]-jcy)<jR*2){joyId=e.pointerId;hint.visible=false;joyMove(e)}});
+window.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joyMove(e)});
+const joyUp=e=>{if(e.pointerId===joyId)joyEnd()};
+window.addEventListener('pointerup',joyUp);window.addEventListener('pointercancel',joyUp);
 layout();
 const refreshFont=()=>{PIXI.TextMetrics.clearMetrics();[scoreT,comboT,hint].forEach(t=>{t.dirty=true})};
 if(document.fonts){document.fonts.load('40px Chewy').then(refreshFont).catch(()=>{});document.fonts.ready.then(refreshFont)}
@@ -191,33 +201,37 @@ app.ticker.add(()=>{
   const dt=Math.min(app.ticker.deltaMS/1000,.05),now=performance.now()/1000;
   const VX=W/2,VY=H*.5,MR=Math.hypot(W,H)*.6;
   stars.forEach(s=>{s.r=s.r*(1+dt*.7)+dt*10;if(s.r>MR){s.r=Math.random()*20;s.a=Math.random()*Math.PI*2}
-    const q=s.r/MR;s.x=VX+Math.cos(s.a)*s.r-camX*q*.35;s.y=VY+Math.sin(s.a)*s.r-camY*q*.35;s.scale.set(.15+q*1.1);s.alpha=Math.min(.85,.2+q*1.5)});
+    const q=s.r/MR;s.x=VX+Math.cos(s.a)*s.r-camX*q*.6;s.y=VY+Math.sin(s.a)*s.r-camY*q*.6;s.scale.set(.15+q*1.1);s.alpha=Math.min(.85,.2+q*1.5)});
   if(state==='play'){
     elapsed+=dt;timeLeft-=dt;spawnT-=dt;bonusT-=dt;heartT-=dt;
-    if(bonusT<=0){if(wlevel<8)spawnPickup('w');bonusT=Math.max(3.5,9-elapsed*.16)}
-    if(heartT<=0){if(lives<5)spawnPickup('h');heartT=13}
+    if(bonusT<=0){if(wlevel<8)spawnPickup('w');bonusT=Math.max(2.8,6-elapsed*.1)}
+    if(heartT<=0){if(lives<5)spawnPickup('h');heartT=8}
     if(spawnT<=0){spawn();spawnT=Math.max(.16,.6-elapsed*.014)}
     if(comboTimer>0){comboTimer-=dt;if(comboTimer<=0){combo=0;hideCombo()}}
     if(timeLeft<=0)showEnd();
   }
   for(let i=gems.length-1;i>=0;i--){
-    const s=gems[i];s.age+=dt;s.z-=(2.6+elapsed*.03)*dt;const k=1/Math.max(s.z,.05);
+    const s=gems[i];s.age+=dt;s.z-=(2.1+elapsed*.025)*dt;const k=1/Math.max(s.z,.05);
     s.x=VX+(s.ox-camX)*k;s.y=VY+(s.oy-camY)*k;s.rotation+=s.vr*dt;s.scale.set(s.baseScale*k);s.alpha=Math.min(1,s.age*2.5);s.zIndex=k;
-    if(!s.hitDone&&s.z<=.4&&state==='play'){s.hitDone=true;if(Math.hypot(s.ox-camX,s.oy-camY)<s.rw+gemSize()*(s.pk?.7:.55)){const hx=s.x,hy=s.y,hc=s.col,pk=s.pk;gemLayer.removeChild(s);s.destroy();gems.splice(i,1);if(pk)collect(pk,hx,hy);else hurt(hx,hy,hc);if(state!=='play')break;continue}}
+    if(!s.hitDone&&s.z<=.4&&state==='play'){s.hitDone=true;if(Math.hypot(s.ox-camX,s.oy-camY)<s.rw+gemSize()*.6){const hx=s.x,hy=s.y,hc=s.col,pk=s.pk;gemLayer.removeChild(s);s.destroy();gems.splice(i,1);if(pk)collect(pk,hx,hy);else hurt(hx,hy,hc);if(state!=='play')break;continue}}
     const rd=s.width/2;
     if(s.z<.08||s.x+rd<0||s.x-rd>W||s.y+rd<0||s.y-rd>H){gemLayer.removeChild(s);s.destroy();gems.splice(i,1)}
   }
-  ax+=(tAx-ax)*Math.min(1,dt*28);ay+=(tAy-ay)*Math.min(1,dt*28);cross.x=ax;cross.y=ay;
-  camX+=(tX-camX)*Math.min(1,dt*18);camY+=(tY-camY)*Math.min(1,dt*18);
-  if(state==='play'){fireT-=dt;if(fireT<=0){fireT=Math.max(.22,.8*Math.pow(.78,Math.max(0,wlevel-1)));
+  ax+=(tAx-ax)*Math.min(1,dt*22);ay+=(tAy-ay)*Math.min(1,dt*22);cross.x=ax;cross.y=ay;
+  if(state==='play'){const k=Math.min(1,dt*22);sdx+=(jdx-sdx)*k;sdy+=(jdy-sdy)*k;
+    tAx=W/2+sdx*W*.46;tAy=H*.5+sdy*H*.46;
+    const m=Math.hypot(sdx,sdy),u=m<.08?0:Math.min(1,(m-.08)/.92),s=Math.pow(u,1.4),dx=m?sdx/m:0,dy=m?sdy/m:0,kc=Math.min(1,dt*9);
+    cvx+=(dx*s*W*1.1-cvx)*kc;cvy+=(dy*s*H*1.4-cvy)*kc;
+    camX=Math.max(-W*1.6,Math.min(W*1.6,camX+cvx*dt));camY=Math.max(-H*1.9,Math.min(H*1.9,camY+cvy*dt))}
+  if(state==='play'){fireT-=dt;if(fireT<=0){fireT=Math.max(.16,.5*Math.pow(.8,Math.max(0,wlevel-1)));
     (wlevel>=1?[-1,1]:[0]).forEach(sd=>{const sp=new PIXI.Sprite(dotTex);sp.anchor.set(.5);sp.blendMode=PIXI.BLEND_MODES.ADD;sp.tint=0x3df08c;fxLayer.addChild(sp);
       bullets.push({cx:camX,cy:camY,mx:sd*W*.07,my:H*.05,ux:ax-VX,uy:ay-VY,z:.25,s:sp})})}}
-  const dzp=(2.6+elapsed*.03)*dt;
+  const dzp=(2.1+elapsed*.025)*dt;
   for(let i=bullets.length-1;i>=0;i--){
-    const b=bullets[i],zp=b.z;b.z+=9*dt;let hit=false;const f=Math.max(0,1-b.z/3),bx=b.cx+b.mx*f+b.ux*b.z,by=b.cy+b.my*f+b.uy*b.z;
+    const b=bullets[i],zp=b.z;b.z+=12*dt;let hit=false;const f=Math.max(0,1-b.z/3),bx=b.cx+b.mx*f+b.ux*b.z,by=b.cy+b.my*f+b.uy*b.z;
     for(const g of gems.slice()){
       if(g.dead||g.pk)continue;
-      if(zp<=g.z+dzp&&b.z>=g.z&&Math.hypot(bx-g.ox,by-g.oy)<g.rw*1.5+gemSize()*.2){pop(g);cross.scale.set(1.5);hit=true;break}
+      if(zp<=g.z+dzp&&b.z>=g.z&&Math.hypot(bx-g.ox,by-g.oy)<g.rw*1.2+gemSize()*.1){pop(g);cross.scale.set(1.5);hit=true;break}
     }
     if(hit||b.z>9){b.s.destroy();bullets.splice(i,1);continue}
     const k=1/b.z,sx=VX+(bx-camX)*k,sy=VY+(by-camY)*k,sz=Math.max(.12,Math.min(1.4,.7/b.z));
@@ -238,7 +252,7 @@ app.ticker.add(()=>{
   if(shownScore!==score){scoreT.text='Score '+score;shownScore=score}
   const f=Math.max(0,timeLeft/GAME_TIME);
   bar.clear().beginFill(f>.25?0x7dff6b:0xff4d8d).drawRoundedRect(18,14,Math.max(0,(W-36)*f),10,5).endFill();
-  if(hint.visible){hint.alpha=.6+.4*Math.sin(now*6);if(elapsed>4)hint.visible=false}
+  if(hint.visible){hint.alpha=.6+.4*Math.sin(now*6);if(elapsed>6)hint.visible=false}
   if(endUI){endUI.c.alpha=Math.min(1,endUI.c.alpha+dt*3);const p=1+Math.sin(now*5)*.05;endUI.btn.scale.set(p);endUI.deco.forEach(s=>{s.rotation+=s.vr*dt;s.y=s.by+Math.sin(now*.8+s.ph)*6});endUI.sparks.forEach(s=>{const w=(Math.sin(now*s.sp+s.ph)+1)/2;s.alpha=.15+.85*w;s.scale.set(s.b*(.6+.4*w))})}
 });
 </script>

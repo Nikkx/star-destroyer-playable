@@ -14,6 +14,7 @@ Star Destroyer is a playable-ad prototype: a first-person space shooter. You ste
  
 - All the art and lettering are my own illustrations.
 - I wrote the code with help from Claude Code.
+- Finished in under one day.
 ## Size
  
 The whole game is about **350 KB**, well inside the usual 2–5 MB limit for playable ads.
